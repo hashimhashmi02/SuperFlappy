@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Background stays */
+
 :root {
   --bg1: 255 247 237;
   --bg2: 219 234 254;
@@ -14,14 +14,18 @@ body {
     radial-gradient(1200px 800px at 10% 10%, rgb(var(--bg2)) 0%, transparent 60%),
     radial-gradient(1200px 800px at 90% 0%, rgb(var(--bg1)) 0%, transparent 60%),
     linear-gradient(180deg, #e0f2fe 0%, #fef3c7 100%);
+  
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-attachment: fixed, fixed, fixed;
+  background-size: 1600px 1200px, 1600px 1200px, 100% 100%;
 }
 
-/* Card */
+
+
 .card {
   @apply rounded-3xl bg-white/60 backdrop-blur-md shadow-soft border border-white/50;
 }
 
-/* Buttons (base) */
 .btn {
   @apply inline-flex items-center gap-2 rounded-xl px-4 py-2 font-semibold
          bg-brand-600 text-white hover:bg-brand-700 active:scale-[.99] transition;
@@ -31,11 +35,10 @@ body {
          bg-white/70 hover:bg-white/90 border border-white/60 transition;
 }
 
-/* NEW: small size */
+
 .btn-sm { @apply px-3 py-1.5 text-sm gap-1 rounded-lg; }
 
-/* Tighter headings */
+
 .h1-tight { @apply text-xl sm:text-2xl font-bold tracking-tight; }
 
-/* Toolbar spacing */
 .toolbar { @apply flex items-center gap-2 flex-wrap; }

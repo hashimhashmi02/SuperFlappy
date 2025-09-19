@@ -34,23 +34,21 @@ const BEST_KEY = "flappy_best_v3";
 const Game: React.FC = () => {
   const [state, setState] = useState<GameState>("ready");
 
-  // render state (driven by refs below)
+
   const [birdY, setBirdY] = useState<number>(VIEW_H / 2);
   const [vy, setVy] = useState<number>(0);
 
-  // physics refs (single source of truth for loop)
   const yRef = useRef<number>(VIEW_H / 2);
   const vyRef = useRef<number>(0);
 
   const [score, setScore] = useState<number>(0);
   const [best, setBest] = useState<number>(() => Number(localStorage.getItem(BEST_KEY) ?? 0));
 
-  // settings
+
   const [speedMul, setSpeedMul] = useState<number>(1);
   const [gapOffset, setGapOffset] = useState<number>(0);
   const [showSettings, setShowSettings] = useState(false);
 
-  // difficulty scaling + settings
   const baseSpeed = useMemo(() => INITIAL_SPEED + score * 4.5, [score]);
   const speed = useMemo(() => clamp(baseSpeed * speedMul, 60, MAX_SPEED), [baseSpeed, speedMul]);
   const baseGap = useMemo(() => INITIAL_GAP - score * 2.2, [score]);
@@ -58,10 +56,9 @@ const Game: React.FC = () => {
 
   const { pipes, update: updatePipes, reset: resetPipes } = usePipes();
 
-  // world scroll (parallax)
+
   const [worldX, setWorldX] = useState(0);
 
-  // particles
   const { particles, emitBurst, update: updateParticles, reset: resetParticles } = useParticles();
 
   const jump = useCallback(() => {
@@ -77,7 +74,7 @@ const Game: React.FC = () => {
   const hardReset = useCallback(() => {
     setState("ready");
     setScore(0);
-    // physics reset
+
     yRef.current = VIEW_H / 2;
     vyRef.current = 0;
     setBirdY(yRef.current);
@@ -87,7 +84,6 @@ const Game: React.FC = () => {
     setWorldX(0);
   }, [resetPipes, resetParticles]);
 
-  // keyboard
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.code === "Space" || e.code === "ArrowUp") {
@@ -114,36 +110,33 @@ const Game: React.FC = () => {
     sfxHit();
   }, [score]);
 
-  // score pop animation key
+
   const [scoreKey, setScoreKey] = useState(0);
 
-  // main loop
+
   const onUpdate = useCallback((dt: number) => {
     if (state !== "running") return;
 
-    // physics (refs only)
+
     vyRef.current += GRAVITY * dt;
     yRef.current += vyRef.current * dt;
 
-    // world & particles
     setWorldX(w => w + speed * dt);
     updateParticles(dt);
 
-    // pipes (with one-time pass callback)
     updatePipes(dt, speed, gapH, () => {
       setScore(s => s + 1);
       setScoreKey(k => k + 1);
       sfxScore();
     });
 
-    // collisions (predict next tiny step)
+  
     const nextY = yRef.current + vyRef.current * dt;
     if (birdHitsBounds(nextY, BIRD_R) || birdHitsPipes(nextY, BIRD_R, pipes)) {
       endGame();
       return;
     }
 
-    // sync render state (cheap setState)
     setBirdY(yRef.current);
     setVy(vyRef.current);
   }, [state, speed, gapH, updatePipes, updateParticles, pipes, endGame]);
@@ -152,7 +145,7 @@ const Game: React.FC = () => {
 
   return (
     <div className="w-full">
-      {/* HUD */}
+
       <div className="flex items-center justify-between mb-4">
         <div className="text-sm font-semibold">
           Score:{" "}
@@ -182,7 +175,7 @@ const Game: React.FC = () => {
         </div>
       </div>
 
-      {/* GAME VIEW */}
+
       <div
         className="relative rounded-2xl border border-white/60 overflow-hidden shadow-soft"
         style={{ width: VIEW_W, height: VIEW_H, background: "linear-gradient(180deg,#dbeafe 0%,#fef3c7 100%)" }}
@@ -191,23 +184,22 @@ const Game: React.FC = () => {
         role="button"
         aria-label="game area"
       >
-        {/* parallax layers */}
         <Parallax worldX={worldX} />
 
-        {/* pipes */}
+    
         {pipes.map((p) => (
           <Pipe key={p.id} x={p.x} gapY={p.gapY} gapH={p.gapH} />
         ))}
 
-        {/* particles */}
+   
         <Particles items={particles} />
 
-        {/* bird */}
+       
         <div style={{ position: "absolute", left: BIRD_X - BIRD_R, top: 0 }}>
           <Bird y={birdY - BIRD_R} vy={vy} state={state} />
         </div>
 
-        {/* ground */}
+ 
         <div
           className="absolute left-0 right-0"
           style={{
@@ -219,7 +211,7 @@ const Game: React.FC = () => {
           }}
         />
 
-        {/* overlays */}
+     
         {state !== "running" && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="card px-6 py-5 text-center">
@@ -243,7 +235,6 @@ const Game: React.FC = () => {
         )}
       </div>
 
-      {/* controls */}
       <div className="mt-4 flex items-center gap-3 flex-wrap">
         {state !== "running" ? (
           <button className="btn" onClick={() => setState("running")}>
@@ -262,7 +253,7 @@ const Game: React.FC = () => {
         </button>
       </div>
 
-      {/* settings panel */}
+   
       {showSettings && (
         <div className="mt-4 p-4 card">
           <h3 className="font-semibold mb-3">Settings</h3>

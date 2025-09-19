@@ -50,28 +50,29 @@ const GameCanvas: React.FC = () => {
     try { return JSON.parse(localStorage.getItem(SCORES_KEY) || "[]"); } catch { return []; }
   });
 
-  // physics & difficulty refs
+
   const yRef = useRef<number>(VIEW_H / 2);
   const vyRef = useRef<number>(0);
   const speedMulRef = useRef(1);
   const gapOffsetRef = useRef(0);
 
-  // pipes
+  
   const pipesRef = useRef<Pipe[]>([]);
   const spawnTimerRef = useRef(0);
   let PIPE_ID = 1;
 
-  // atlases & DPR
   const atlRef = useRef<ReturnType<typeof makeAtlases> | null>(null);
   const dprRef = useRef<number>(Math.max(1, window.devicePixelRatio || 1));
 
-  // wing anim
+
   const wingRef = useRef(0);
 
-  // responsive canvas
+
   const resizeCanvas = () => {
     const c = canvasRef.current!, wrap = wrapperRef.current!;
-    const targetW = Math.min(wrap.clientWidth, VIEW_W);
+    const DISPLAY_MAX_W = 340
+    // const targetW = Math.min(wrap.clientWidth, VIEW_W);
+    const targetW = Math.min(wrap.clientWidth, DISPLAY_MAX_W, VIEW_W);
     const scale = targetW / VIEW_W;
     const cssW = VIEW_W * scale, cssH = VIEW_H * scale;
     const dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -94,7 +95,7 @@ const GameCanvas: React.FC = () => {
     return () => { ro.disconnect(); window.removeEventListener("resize", onResize); };
   }, []);
 
-  // loop
+
   useEffect(() => {
     const c = canvasRef.current!, ctx = c.getContext("2d")!;
     if (!atlRef.current) atlRef.current = makeAtlases(dprRef.current);
@@ -156,7 +157,7 @@ const GameCanvas: React.FC = () => {
     return () => stop();
   }, [state, score, muted]);
 
-  // input & pause on blur/hidden
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Space" || e.code === "ArrowUp") {
@@ -209,7 +210,7 @@ const GameCanvas: React.FC = () => {
 
   return (
     <div className="w-full">
-      {/* Compact HUD */}
+   
       <div className="flex items-center justify-between mb-3">
         <div className="text-sm font-semibold space-x-3">
           <span>Score: <span className="tabular-nums">{score}</span></span>
@@ -240,7 +241,6 @@ const GameCanvas: React.FC = () => {
         </div>
       </div>
 
-      {/* Centered, responsive canvas */}
       <div ref={wrapperRef} className="w-full flex justify-center">
         <canvas
           ref={canvasRef}
@@ -250,7 +250,7 @@ const GameCanvas: React.FC = () => {
         />
       </div>
 
-      {/* Settings */}
+      
       {showSettings && (
         <div className="mt-3 grid grid-cols-1 gap-3 card p-3">
           <label className="text-sm">
@@ -269,7 +269,6 @@ const GameCanvas: React.FC = () => {
         </div>
       )}
 
-      {/* Leaderboard */}
       {leaders.length > 0 && (
         <div className="mt-3 card p-3">
           <h4 className="font-semibold mb-1">Local Leaderboard</h4>
