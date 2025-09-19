@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Pretty background + subtle pattern */
+:root {
+  --bg1: 255 247 237; /* amber-50 */
+  --bg2: 219 234 254; /* sky-100 */
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  @apply antialiased;
+  background: radial-gradient(1200px 800px at 10% 10%, rgb(var(--bg2)) 0%, transparent 60%),
+              radial-gradient(1200px 800px at 90% 0%, rgb(var(--bg1)) 0%, transparent 60%),
+              linear-gradient(180deg, #e0f2fe 0%, #fef3c7 100%);
+}
+
+/* Card glass effect */
+.card {
+  @apply rounded-3xl bg-white/60 backdrop-blur-md shadow-soft border border-white/50;
+}
+
+/* Buttons */
+.btn {
+  @apply inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-semibold
+         bg-brand-600 text-white hover:bg-brand-700 active:scale-[.99] transition;
+}
+
+.btn-ghost {
+  @apply inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-semibold
+         bg-white/70 hover:bg-white/90 border border-white/60 transition;
+}
