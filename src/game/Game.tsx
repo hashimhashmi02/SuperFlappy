@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Pause, Play, RotateCcw } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Pause, Play, RotateCcw, Settings as Gear } from "lucide-react";
 import {
   BIRD_R,
   BIRD_X,
@@ -17,132 +17,190 @@ import { useGameLoop } from "./useGameLoop";
 import { usePipes } from "./usePipes";
 import Bird from "./components/Bird";
 import Pipe from "./components/Pipe";
-import { birdHitsBounds, birdHitsPipes, checkPassAndScore } from "./utils/collisions";
+import { birdHitsBounds, birdHitsPipes } from "./utils/collisions";
 import type { GameState } from "./types";
+import { motion } from "framer-motion";
+import Parallax from "./components/Parallax";
+import Particles from "./components/Particles";
+import { useParticles } from "./useParticles";
+import { sfxFlap, sfxHit, sfxScore } from "./sfx";
 
-function lerp(a: number, b: number, t: number) {
-  return a + (b - a) * t;
+function clamp(v: number, a: number, b: number) {
+  return Math.max(a, Math.min(b, v));
 }
 
-const BEST_KEY = "flappy_best_v1";
+const BEST_KEY = "flappy_best_v3";
 
 const Game: React.FC = () => {
   const [state, setState] = useState<GameState>("ready");
+
+  // render state (driven by refs below)
   const [birdY, setBirdY] = useState<number>(VIEW_H / 2);
   const [vy, setVy] = useState<number>(0);
 
-  const [score, setScore] = useState<number>(0);
-  const [best, setBest] = useState<number>(() => {
-    const v = localStorage.getItem(BEST_KEY);
-    return v ? Number(v) : 0;
-  });
+  // physics refs (single source of truth for loop)
+  const yRef = useRef<number>(VIEW_H / 2);
+  const vyRef = useRef<number>(0);
 
-  // difficulty scales with score
-  const speed = useMemo(() => Math.min(MAX_SPEED, INITIAL_SPEED + score * 4.5), [score]);
-  const gapH = useMemo(() => Math.max(MIN_GAP, INITIAL_GAP - score * 2.2), [score]);
+  const [score, setScore] = useState<number>(0);
+  const [best, setBest] = useState<number>(() => Number(localStorage.getItem(BEST_KEY) ?? 0));
+
+  // settings
+  const [speedMul, setSpeedMul] = useState<number>(1);
+  const [gapOffset, setGapOffset] = useState<number>(0);
+  const [showSettings, setShowSettings] = useState(false);
+
+  // difficulty scaling + settings
+  const baseSpeed = useMemo(() => INITIAL_SPEED + score * 4.5, [score]);
+  const speed = useMemo(() => clamp(baseSpeed * speedMul, 60, MAX_SPEED), [baseSpeed, speedMul]);
+  const baseGap = useMemo(() => INITIAL_GAP - score * 2.2, [score]);
+  const gapH = useMemo(() => clamp(baseGap + gapOffset, MIN_GAP, 260), [baseGap, gapOffset]);
 
   const { pipes, update: updatePipes, reset: resetPipes } = usePipes();
 
+  // world scroll (parallax)
+  const [worldX, setWorldX] = useState(0);
+
+  // particles
+  const { particles, emitBurst, update: updateParticles, reset: resetParticles } = useParticles();
+
   const jump = useCallback(() => {
     if (state === "ready") setState("running");
-    if (state === "running") setVy(JUMP_VELOCITY);
-  }, [state]);
+    if (state === "running") {
+      vyRef.current = JUMP_VELOCITY;
+      setVy(vyRef.current);
+      emitBurst(BIRD_X, yRef.current);
+      sfxFlap();
+    }
+  }, [state, emitBurst]);
 
   const hardReset = useCallback(() => {
     setState("ready");
-    setBirdY(VIEW_H / 2);
-    setVy(0);
     setScore(0);
+    // physics reset
+    yRef.current = VIEW_H / 2;
+    vyRef.current = 0;
+    setBirdY(yRef.current);
+    setVy(vyRef.current);
     resetPipes();
-  }, [resetPipes]);
+    resetParticles();
+    setWorldX(0);
+  }, [resetPipes, resetParticles]);
 
   // keyboard
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.code === "Space" || e.code === "ArrowUp") {
-        e.preventDefault();
-        jump();
+        e.preventDefault(); jump();
       } else if (e.code === "KeyP") {
         setState(s => (s === "running" ? "paused" : s === "paused" ? "running" : s));
       } else if (e.code === "KeyR") {
         hardReset();
+      } else if (e.code === "KeyO") {
+        setShowSettings(v => !v);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [jump, hardReset]);
 
-  // scoring when pipes pass bird
-  useEffect(() => {
-    checkPassAndScore(pipes, (pipeId) => {
-      setScore((s) => s + 1);
-      // mark passed for immutability — we rebuild pipes in hook, so nothing to toggle here
-      // (pass detection simply fires once as the x+w < BIRD_X condition flips)
+  const endGame = useCallback(() => {
+    setState("gameover");
+    setBest(b => {
+      const nb = Math.max(b, score);
+      localStorage.setItem(BEST_KEY, String(nb));
+      return nb;
     });
-  }, [pipes]);
+    sfxHit();
+  }, [score]);
 
-  const update = useCallback((dt: number) => {
+  // score pop animation key
+  const [scoreKey, setScoreKey] = useState(0);
+
+  // main loop
+  const onUpdate = useCallback((dt: number) => {
     if (state !== "running") return;
 
-    // physics
-    setVy((v) => v + GRAVITY * dt);
-    setBirdY((y) => y + vy * dt);
+    // physics (refs only)
+    vyRef.current += GRAVITY * dt;
+    yRef.current += vyRef.current * dt;
 
-    // pipes + scrolling
-    updatePipes(dt, speed, gapH);
+    // world & particles
+    setWorldX(w => w + speed * dt);
+    updateParticles(dt);
 
-    // collisions
-    const hitBounds = birdHitsBounds(birdY + vy * dt, BIRD_R);
-    const hitPipe = birdHitsPipes(birdY + vy * dt, BIRD_R, pipes);
+    // pipes (with one-time pass callback)
+    updatePipes(dt, speed, gapH, () => {
+      setScore(s => s + 1);
+      setScoreKey(k => k + 1);
+      sfxScore();
+    });
 
-    if (hitBounds || hitPipe) {
-      setState("gameover");
-      setBest((b) => {
-        const nb = Math.max(b, score);
-        localStorage.setItem(BEST_KEY, String(nb));
-        return nb;
-      });
+    // collisions (predict next tiny step)
+    const nextY = yRef.current + vyRef.current * dt;
+    if (birdHitsBounds(nextY, BIRD_R) || birdHitsPipes(nextY, BIRD_R, pipes)) {
+      endGame();
+      return;
     }
-  }, [gapH, pipes, score, speed, state, updatePipes, vy, birdY]);
 
-  useGameLoop(state === "running", update);
+    // sync render state (cheap setState)
+    setBirdY(yRef.current);
+    setVy(vyRef.current);
+  }, [state, speed, gapH, updatePipes, updateParticles, pipes, endGame]);
 
-  // responsive scale so fixed game coords map nicely
-  const scale = useMemo(() => {
-    // scale to parent width if needed using CSS, but we keep fixed intrinsic size
-    return 1;
-  }, []);
+  useGameLoop(state === "running", onUpdate);
 
   return (
     <div className="w-full">
+      {/* HUD */}
       <div className="flex items-center justify-between mb-4">
         <div className="text-sm font-semibold">
-          Score: <span className="tabular-nums">{score}</span>
+          Score:{" "}
+          <motion.span
+            key={scoreKey}
+            className="tabular-nums inline-block"
+            initial={{ scale: 1.2 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 600, damping: 18 }}
+          >
+            {score}
+          </motion.span>
         </div>
-        <div className="text-sm text-black/60">
-          Best: <span className="tabular-nums">{best}</span>
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-black/60">
+            Best: <span className="tabular-nums">{best}</span>
+          </div>
+          <button
+            className="btn-ghost"
+            type="button"
+            onClick={() => setShowSettings(v => !v)}
+            title="Settings (O)"
+          >
+            <Gear className="h-5 w-5" />
+            Settings
+          </button>
         </div>
       </div>
 
+      {/* GAME VIEW */}
       <div
         className="relative rounded-2xl border border-white/60 overflow-hidden shadow-soft"
-        style={{ width: VIEW_W * scale, height: VIEW_H * scale, background: "linear-gradient(180deg,#dbeafe 0%,#fef3c7 100%)" }}
+        style={{ width: VIEW_W, height: VIEW_H, background: "linear-gradient(180deg,#dbeafe 0%,#fef3c7 100%)" }}
         onMouseDown={jump}
         onTouchStart={(e) => { e.preventDefault(); jump(); }}
         role="button"
         aria-label="game area"
       >
-        {/* sky clouds (decor) */}
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-6 -left-10 h-24 w-24 rounded-full bg-white/60 blur-2xl" />
-          <div className="absolute top-6 right-4 h-16 w-28 rounded-full bg-white/60 blur-xl" />
-          <div className="absolute bottom-24 left-8 h-10 w-20 rounded-full bg-white/70 blur-xl" />
-        </div>
+        {/* parallax layers */}
+        <Parallax worldX={worldX} />
 
         {/* pipes */}
         {pipes.map((p) => (
           <Pipe key={p.id} x={p.x} gapY={p.gapY} gapH={p.gapH} />
         ))}
+
+        {/* particles */}
+        <Particles items={particles} />
 
         {/* bird */}
         <div style={{ position: "absolute", left: BIRD_X - BIRD_R, top: 0 }}>
@@ -168,12 +226,12 @@ const Game: React.FC = () => {
               {state === "ready" && (
                 <>
                   <h2 className="text-lg font-semibold">Tap / Space to start</h2>
-                  <p className="text-sm text-black/60 mt-1">Press <kbd>Space</kbd> or click to flap • <kbd>P</kbd> pause • <kbd>R</kbd> reset</p>
+                  <p className="text-sm text-black/60 mt-1">
+                    <kbd>Space</kbd> flap • <kbd>P</kbd> pause • <kbd>R</kbd> reset • <kbd>O</kbd> settings
+                  </p>
                 </>
               )}
-              {state === "paused" && (
-                <h2 className="text-lg font-semibold">Paused</h2>
-              )}
+              {state === "paused" && <h2 className="text-lg font-semibold">Paused</h2>}
               {state === "gameover" && (
                 <>
                   <h2 className="text-lg font-semibold">Game Over</h2>
@@ -186,9 +244,9 @@ const Game: React.FC = () => {
       </div>
 
       {/* controls */}
-      <div className="mt-4 flex items-center gap-3">
+      <div className="mt-4 flex items-center gap-3 flex-wrap">
         {state !== "running" ? (
-          <button className="btn" onClick={() => setState(s => (s === "ready" ? "running" : "running"))}>
+          <button className="btn" onClick={() => setState("running")}>
             <Play className="h-5 w-5" />
             {state === "gameover" ? "Play again" : "Start"}
           </button>
@@ -202,13 +260,43 @@ const Game: React.FC = () => {
           <RotateCcw className="h-5 w-5" />
           Reset
         </button>
-        {state === "paused" && (
-          <button className="btn" onClick={() => setState("running")}>
-            <Play className="h-5 w-5" />
-            Resume
-          </button>
-        )}
       </div>
+
+      {/* settings panel */}
+      {showSettings && (
+        <div className="mt-4 p-4 card">
+          <h3 className="font-semibold mb-3">Settings</h3>
+          <div className="grid grid-cols-1 gap-4">
+            <label className="text-sm">
+              <span className="block mb-1">Speed multiplier: <b>{speedMul.toFixed(2)}×</b></span>
+              <input
+                type="range"
+                min={0.7}
+                max={1.4}
+                step={0.01}
+                value={speedMul}
+                onChange={(e) => setSpeedMul(parseFloat(e.target.value))}
+                className="w-full accent-brand-600"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="block mb-1">Gap offset: <b>{gapOffset}px</b></span>
+              <input
+                type="range"
+                min={-80}
+                max={80}
+                step={1}
+                value={gapOffset}
+                onChange={(e) => setGapOffset(parseInt(e.target.value))}
+                className="w-full accent-brand-600"
+              />
+            </label>
+            <p className="text-xs text-black/60">
+              Tip: lower speed or higher gap to practice. Press <kbd>O</kbd> to toggle this panel.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
