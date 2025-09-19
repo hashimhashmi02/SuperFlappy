@@ -1,69 +1,46 @@
-# React + TypeScript + Vite
+SuperFlappy is a polished Flappy Bird re-build focused on fundamentals and feel.
+It uses a Canvas renderer (React for UI only) to keep the game loop silky smooth, and Tailwind for a compact, modern UI.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Highlights
 
-Currently, two official plugins are available:
+⚡ Fast: Canvas draw loop (no React re-render per frame) for stable FPS
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+📱 Responsive: Scales to mobile; crisp DPR rendering
 
-## Expanding the ESLint configuration
+⏸️ Smart: Auto pause on tab blur / visibility change
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+🔊 SFX + Mute: Tiny WebAudio blips for flap/score/hit with one-click mute
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+🧪 Tuning: In-app settings (speed ×, gap offset) for practice
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+🏆 Local Leaderboard: Saves top 10 scores in localStorage
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+🖼️ Share Badge: Export a PNG of your best score
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+🎨 Pretty: Clean Tailwind UI, glossy pipes, wing-flap bird
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Controls
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Space/Click/Tap = Flap
+
+P = Pause / Resume
+
+R = Reset
+
+O = Toggle Settings
+
+M = Mute / Unmute
+
+Tech
+
+React + TypeScript
+
+Canvas renderer (custom loop)
+
+Tailwind CSS
+
+Deploy
+
+Vite build → dist/
+
+Works out-of-the-box on Vercel (Build: npm run build, Output: dist)
